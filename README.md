@@ -6,60 +6,46 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Running Tracker</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" />
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     :root{
-      --bg:#0a0a0f;--panel:#111118;--border:#1e1e2a;
-      --accent:#00e676;--accent2:#00b0ff;--warn:#ff6d00;
-      --danger:#f44336;--text:#e8eaf0;--sub:#6b7a99;--r:12px;
+      --bg:#0f0f14;--panel:#1a1a24;--border:#252535;
+      --accent:#FC4C02;--accent2:#ff8c42;--warn:#ffd600;
+      --danger:#f44336;--text:#f0f0f5;--sub:#8892a4;--r:12px;
     }
 
-    /* BUG-FIX #2: body position:fixed + height:100% fills full screen.
-       #app uses height:100% — no double-counting of safe-area-insets. */
     html{height:100%}
     body{
       height:100%;width:100%;
-      font-family:-apple-system,'Helvetica Neue',sans-serif;
+      font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;
       background:var(--bg);color:var(--text);
       overflow:hidden;position:fixed;
       -webkit-tap-highlight-color:transparent;
     }
 
-    #app{
-      display:grid;
-      grid-template-rows:auto 1fr auto auto;
-      height:100%;
-    }
+    #app{display:grid;grid-template-rows:auto 1fr auto auto;height:100%}
 
-    /* ── Header ── */
     header{
       display:flex;align-items:center;justify-content:space-between;
-      padding:8px 14px;
-      padding-top:max(8px,env(safe-area-inset-top));
-      background:var(--panel);border-bottom:1px solid var(--border);
-      gap:8px;
+      padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));
+      background:var(--panel);border-bottom:1px solid var(--border);gap:8px;
     }
     .hd-left{display:flex;align-items:center;gap:7px;flex-shrink:0}
     header h1{font-size:14px;font-weight:800;letter-spacing:1px;color:var(--accent)}
-    #status-dot{width:8px;height:8px;border-radius:50%;
-      background:var(--sub);transition:background .4s;flex-shrink:0}
-    #status-dot.active{background:var(--accent);
-      box-shadow:0 0 6px var(--accent);animation:blink 1.4s infinite}
+    #status-dot{width:8px;height:8px;border-radius:50%;background:var(--sub);
+      transition:background .4s;flex-shrink:0}
+    #status-dot.active{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:blink 1.4s infinite}
     #status-dot.paused{background:var(--warn);box-shadow:0 0 6px var(--warn)}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
-
     #timer{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;
       letter-spacing:1px;color:var(--text);flex-shrink:0}
-
     .hd-right{font-size:10px;color:var(--sub);text-align:right;line-height:1.8;min-width:56px}
     #voice-state{cursor:pointer;-webkit-user-select:none;user-select:none}
 
-    /* ── Map ── */
     #map-wrap{position:relative;min-height:0}
     #map{width:100%;height:100%}
 
-    /* GPS spinner overlay — BUG-FIX #1: hidden via JS on EVERY position, not just first */
     #gps-overlay{
       display:none;position:absolute;inset:0;z-index:800;
       background:rgba(10,10,15,.72);
@@ -73,39 +59,41 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     #gps-overlay p{color:var(--accent);font-size:13px;font-weight:600}
 
-    /* Pace overlay */
     #pace-card{
       position:absolute;top:10px;right:10px;
       background:rgba(10,10,15,.86);border:1px solid var(--border);
       border-radius:var(--r);padding:7px 11px;z-index:500;
       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);min-width:100px;
     }
-    .pc-val{font-size:19px;font-weight:800;color:var(--accent2);
-      font-variant-numeric:tabular-nums}
+    .pc-val{font-size:19px;font-weight:800;color:var(--accent2);font-variant-numeric:tabular-nums}
     .pc-label{font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--sub)}
 
-    /* ── Stats ── */
+    #btn-center{
+      position:absolute;top:10px;left:10px;z-index:500;
+      width:38px;height:38px;border-radius:50%;border:1px solid var(--border);
+      background:rgba(10,10,15,.86);color:var(--text);font-size:18px;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      -webkit-appearance:none;
+    }
+
     #stats{
       display:grid;grid-template-columns:repeat(4,1fr);
       background:var(--panel);border-top:1px solid var(--border);
       padding:6px 2px 8px;
     }
-    .stat{display:flex;flex-direction:column;align-items:center;
-      gap:1px;padding:3px 2px}
-    .stat-val{font-size:19px;font-weight:800;
-      font-variant-numeric:tabular-nums;line-height:1.1}
+    .stat{display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 2px}
+    .stat-val{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
     .stat-unit{font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px}
     .stat-label{font-size:9px;color:var(--sub)}
-    .stat.green .stat-val{color:var(--accent)}
-    .stat.blue  .stat-val{color:var(--accent2)}
-    .stat.warn  .stat-val{color:var(--warn)}
-    .stat.heart .stat-val{color:#ff4d6d}
+    .stat.orange .stat-val{color:var(--accent)}
+    .stat.amber  .stat-val{color:var(--accent2)}
+    .stat.warn   .stat-val{color:var(--warn)}
+    .stat.heart  .stat-val{color:#ff4d6d}
 
-    /* ── Controls ── */
     #controls{
       display:flex;align-items:center;justify-content:center;gap:9px;
-      padding:7px 12px;
-      padding-bottom:max(12px,env(safe-area-inset-bottom));
+      padding:7px 12px;padding-bottom:max(12px,env(safe-area-inset-bottom));
       background:var(--panel);border-top:1px solid var(--border);
     }
     .btn{
@@ -114,7 +102,7 @@
       -webkit-appearance:none;transition:transform .1s;letter-spacing:.2px;
     }
     .btn:active{transform:scale(.93)}
-    #btn-start{background:var(--accent);color:#000}
+    #btn-start{background:var(--accent);color:#fff}
     #btn-pause{background:var(--warn);color:#000;display:none}
     #btn-stop {background:var(--danger);color:#fff;display:none}
     #btn-hr{
@@ -124,7 +112,6 @@
       display:flex;align-items:center;justify-content:center;
     }
 
-    /* ── Voice badge ── */
     #voice-badge{
       position:fixed;top:64px;left:50%;
       transform:translateX(-50%) translateY(-10px);
@@ -136,26 +123,21 @@
     }
     #voice-badge.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-    /* ── HR modal ── */
     #hr-modal{
       display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);
-      z-index:9000;flex-direction:column;align-items:center;
-      justify-content:center;gap:16px;
+      z-index:9000;flex-direction:column;align-items:center;justify-content:center;gap:16px;
     }
     #hr-modal.show{display:flex}
     #hr-wrap{position:relative;width:144px;height:144px;border-radius:50%;
       overflow:hidden;border:4px solid #ff4d6d;flex-shrink:0}
     #hr-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     #hr-canvas{position:absolute;inset:0;width:100%;height:100%;opacity:0}
-    #hr-bpm{font-size:56px;font-weight:900;color:#ff4d6d;line-height:1;
-      font-variant-numeric:tabular-nums}
-    #hr-msg{color:var(--sub);font-size:13px;text-align:center;
-      max-width:230px;line-height:1.5}
+    #hr-bpm{font-size:56px;font-weight:900;color:#ff4d6d;line-height:1;font-variant-numeric:tabular-nums}
+    #hr-msg{color:var(--sub);font-size:13px;text-align:center;max-width:230px;line-height:1.5}
     #hr-close{padding:12px 34px;border-radius:50px;border:none;
       background:var(--border);color:var(--text);font-size:14px;
       font-weight:700;cursor:pointer;-webkit-appearance:none}
 
-    /* ── Summary modal ── */
     #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.84);
       z-index:9000;align-items:center;justify-content:center}
     #modal.show{display:flex}
@@ -167,12 +149,21 @@
     .mrow span:first-child{color:var(--sub)}
     .mrow span:last-child{font-weight:700}
     #modal-close{margin-top:16px;width:100%;padding:12px;border-radius:50px;
-      border:none;background:var(--accent);color:#000;font-size:14px;
+      border:none;background:var(--accent);color:#fff;font-size:14px;
       font-weight:700;cursor:pointer;-webkit-appearance:none}
 
-    .leaflet-container{font:inherit}
-    .leaflet-control-zoom a{
-      width:32px!important;height:32px!important;line-height:32px!important;font-size:17px!important}
+    .maplibregl-ctrl-bottom-right{right:8px;bottom:max(8px,env(safe-area-inset-bottom))!important}
+    .maplibregl-ctrl-group{
+      background:rgba(26,26,36,.9)!important;
+      border:1px solid var(--border)!important;border-radius:8px!important;
+    }
+    .maplibregl-ctrl-group button{background:transparent!important}
+    .maplibregl-ctrl-group button svg path{fill:var(--text)!important}
+    .maplibregl-ctrl-attrib{
+      font-size:9px!important;background:rgba(0,0,0,.45)!important;
+      color:rgba(255,255,255,.55)!important;
+    }
+    .maplibregl-ctrl-attrib a{color:rgba(255,255,255,.55)!important}
   </style>
 </head>
 <body>
@@ -199,6 +190,7 @@
       <div class="spinner"></div>
       <p>Buscando GPS…</p>
     </div>
+    <button id="btn-center" onclick="recenter()" title="Centrar">&#x1F3AF;</button>
     <div id="pace-card">
       <div class="pc-label">Ritmo</div>
       <div class="pc-val" id="pace-val">–'–"</div>
@@ -207,12 +199,12 @@
   </div>
 
   <div id="stats">
-    <div class="stat green">
+    <div class="stat orange">
       <div class="stat-val" id="s-km">0.00</div>
       <div class="stat-unit">km</div>
       <div class="stat-label">Distancia</div>
     </div>
-    <div class="stat blue">
+    <div class="stat amber">
       <div class="stat-val" id="s-speed">0.0</div>
       <div class="stat-unit">km/h</div>
       <div class="stat-label">Velocidad</div>
@@ -262,80 +254,130 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
 <script>
-// ─────────────────────────────────────────────────────────
-// State
-// ─────────────────────────────────────────────────────────
 const S = {
-  running:   false,
-  paused:    false,
-  startTime: null,
-  elapsed:   0,          // ms acumulados (excluye pausa actual)
-  km:        0,
-  speed:     0,          // km/h suavizado
-  maxSpeed:  0,
-  bpm:       null,
-  bpmSum:    0,
-  bpmCount:  0,
-  positions: [],
-  watchId:   null,
-  timerIv:   null,
-  lastKmAnn: 0,
-  lastPaceAnn: null,
-  lastBpmAnn:  null,
-  voiceEnabled: true,
-  voiceReady:   false,
+  running:false, paused:false, startTime:null, elapsed:0,
+  km:0, speed:0, maxSpeed:0, bpm:null, bpmSum:0, bpmCount:0,
+  positions:[], watchId:null, timerIv:null,
+  lastKmAnn:0, lastPaceAnn:null, lastBpmAnn:null,
+  voiceEnabled:true, voiceReady:false,
 };
-const WEIGHT = 70; // kg — estimación calorías
+const WEIGHT = 70;
+let lastPos = null;
 
-// ─────────────────────────────────────────────────────────
-// Mapa — CartoDB Voyager (estilo tipo Waze, sin API key)
-// ─────────────────────────────────────────────────────────
-const map = L.map('map', { zoomControl:false, attributionControl:false, tap:false });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  { maxZoom:19 }).addTo(map);
-L.control.zoom({ position:'bottomright' }).addTo(map);
-const routeLine = L.polyline([], { color:'#00e676', weight:5, opacity:.9 }).addTo(map);
-let mkr = null;
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    sources: {
+      satellite: {
+        type: 'raster',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256,
+        attribution: '© Esri, Maxar, Earthstar Geographics'
+      },
+      labels: {
+        type: 'raster',
+        tiles: ['https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256
+      }
+    },
+    layers: [
+      { id: 'satellite', type: 'raster', source: 'satellite' },
+      { id: 'labels',    type: 'raster', source: 'labels', paint: { 'raster-opacity': 0.85 } }
+    ]
+  },
+  center: [-3.7038, 40.4168],
+  zoom: 15,
+  pitch: 50,
+  bearing: 0,
+  attributionControl: true
+});
 
-function setView(la, ln) {
-  map.setView([la, ln], map.getZoom() < 15 ? 17 : map.getZoom());
+map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+
+let mapLoaded = false;
+let marker = null;
+let markerEl = null;
+
+map.on('load', () => {
+  mapLoaded = true;
+  try {
+    map.addSource('terrain', {
+      type: 'raster-dem',
+      tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+      encoding: 'terrarium',
+      tileSize: 256
+    });
+    map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
+  } catch(_) {}
+
+  map.addSource('route', { type: 'geojson', data: emptyLine() });
+  map.addLayer({
+    id: 'route-glow', type: 'line', source: 'route',
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-color': '#FC4C02', 'line-width': 18, 'line-opacity': 0.18, 'line-blur': 8 }
+  });
+  map.addLayer({
+    id: 'route-line', type: 'line', source: 'route',
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-color': '#FC4C02', 'line-width': 5, 'line-opacity': 0.95 }
+  });
+});
+
+function emptyLine() {
+  return { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } };
+}
+function updateRoute() {
+  if (!mapLoaded) return;
+  map.getSource('route').setData({
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: S.positions.map(p => [p.ln, p.la]) }
+  });
+}
+function clearRoute() {
+  if (!mapLoaded) return;
+  map.getSource('route').setData(emptyLine());
 }
 
-function mkrIcon(rot) {
-  return L.divIcon({
-    className: '',
-    iconSize:  [36, 36],
-    iconAnchor:[18, 20],
-    html: `<div style="width:36px;height:36px;transform:rotate(${rot||0}deg)">
-      <div style="width:0;height:0;border-left:9px solid transparent;
-        border-right:9px solid transparent;border-bottom:26px solid #00e5ff;
-        margin:0 auto;filter:drop-shadow(0 0 5px #00e5ff)"></div>
-      <div style="width:12px;height:12px;border-radius:50%;background:#fff;
-        border:2.5px solid #00e5ff;margin:0 auto;box-shadow:0 0 6px #00e5ff"></div>
-    </div>`
-  });
+function buildMarkerEl() {
+  const el = document.createElement('div');
+  el.style.cssText = 'width:36px;height:36px;pointer-events:none';
+  el.innerHTML = `
+    <div style="width:0;height:0;
+      border-left:9px solid transparent;border-right:9px solid transparent;
+      border-bottom:26px solid #FC4C02;margin:0 auto;
+      filter:drop-shadow(0 0 6px rgba(252,76,2,.9))"></div>
+    <div style="width:12px;height:12px;border-radius:50%;background:#fff;
+      border:2.5px solid #FC4C02;margin:0 auto;box-shadow:0 0 6px #FC4C02"></div>`;
+  return el;
 }
 function moveMkr(la, ln, hd) {
   const rot = (hd != null && !isNaN(hd) && hd >= 0) ? hd : 0;
-  if (!mkr) mkr = L.marker([la, ln], { icon:mkrIcon(rot), zIndexOffset:1000 }).addTo(map);
-  else      { mkr.setLatLng([la, ln]); mkr.setIcon(mkrIcon(rot)); }
+  if (!marker) {
+    markerEl = buildMarkerEl();
+    marker = new maplibregl.Marker({ element: markerEl, rotationAlignment: 'map' })
+      .setLngLat([ln, la]).setRotation(rot).addTo(map);
+  } else {
+    marker.setLngLat([ln, la]);
+    marker.setRotation(rot);
+  }
+}
+function setView(la, ln) {
+  const zoom = map.getZoom() < 15 ? 17 : map.getZoom();
+  map.easeTo({ center: [ln, la], zoom, pitch: 50, duration: 800 });
+}
+function recenter() {
+  if (lastPos) setView(lastPos.la, lastPos.ln);
 }
 
-// ─────────────────────────────────────────────────────────
-// Haversine (km)
-// ─────────────────────────────────────────────────────────
 function hav(a, b, c, d) {
   const R = 6371, p = Math.PI / 180;
-  const x = Math.sin((c-a)*p/2)**2
-          + Math.cos(a*p) * Math.cos(c*p) * Math.sin((d-b)*p/2)**2;
+  const x = Math.sin((c-a)*p/2)**2 + Math.cos(a*p)*Math.cos(c*p)*Math.sin((d-b)*p/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
 }
 
-// ─────────────────────────────────────────────────────────
-// Tiempo / formato
-// ─────────────────────────────────────────────────────────
 function eSec() {
   return (S.elapsed + (S.startTime ? Date.now() - S.startTime : 0)) / 1000;
 }
@@ -351,20 +393,11 @@ function paceStr(kmh) {
 }
 function calcCal() { return Math.round(8 * WEIGHT * (eSec() / 3600)); }
 
-// ─────────────────────────────────────────────────────────
-// GPS
-// BUG-FIX #1: overlay se oculta en CADA posición recibida
-// (no sólo en la primera), para que funcione en 2ª+ carrera.
-// BUG-FIX #8: primer punto registrado sin cálculo de distancia.
-// BUG-FIX #7: speed cap sólo a valores imposibles (>80 km/h).
-// ─────────────────────────────────────────────────────────
 function startGPS() {
   if (S.watchId != null) return;
   document.getElementById('gps-overlay').classList.add('show');
   S.watchId = navigator.geolocation.watchPosition(onPos, onGpsErr, {
-    enableHighAccuracy: true,
-    maximumAge: 3000,
-    timeout:    20000,
+    enableHighAccuracy: true, maximumAge: 3000, timeout: 20000,
   });
 }
 function stopGPS() {
@@ -374,48 +407,30 @@ function stopGPS() {
 
 function onPos(p) {
   const { latitude:la, longitude:ln, accuracy:ac, speed:gs, heading:hd } = p.coords;
-
-  // BUG-FIX #1: siempre ocultar overlay en cuanto llega un fix
   document.getElementById('gps-overlay').classList.remove('show');
   document.getElementById('gps-acc').textContent = `±${Math.round(ac)}m`;
-
-  // Ignorar puntos con precisión muy mala (>250m) salvo arranque
   if (ac > 250 && S.positions.length > 2) return;
-
-  // Velocidad: usar GPS nativo si existe; si no, calcular desde distancia
-  let kmh = 0;
-  if (gs != null && gs >= 0) kmh = gs * 3.6;
-
-  // Distancia — sólo si hay posición anterior Y carrera activa
+  lastPos = { la, ln };
+  let kmh = (gs != null && gs >= 0) ? gs * 3.6 : 0;
   if (S.running && S.positions.length > 0) {
     const pv = S.positions[S.positions.length - 1];
     const d  = hav(pv.la, pv.ln, la, ln);
-    if (d > 0.004) S.km += d;                    // >4 m
+    if (d > 0.004) S.km += d;
     if (gs == null) {
       const dt = (Date.now() - pv.ts) / 1000;
       kmh = dt > 0 ? (d / dt) * 3600 : 0;
     }
   }
-
-  // BUG-FIX #7: cap sólo a valores físicamente imposibles (>80 km/h corriendo)
   if (kmh >= 0 && kmh < 80) S.speed = kmh;
   if (S.speed > S.maxSpeed) S.maxSpeed = S.speed;
-
-  // Mover marcador y centrar mapa siempre (antes y durante la carrera)
   moveMkr(la, ln, hd);
   setView(la, ln);
-
-  // Lo siguiente sólo cuando la carrera está activa
   if (!S.running) return;
-
-  // BUG-FIX #8: añadir posición DESPUÉS de haber calculado la distancia
   S.positions.push({ la, ln, ts: Date.now() });
-  routeLine.addLatLng([la, ln]);
-
-  document.getElementById('s-km').textContent    = S.km.toFixed(2);
-  document.getElementById('s-speed').textContent = S.speed.toFixed(1);
+  updateRoute();
+  document.getElementById('s-km').textContent     = S.km.toFixed(2);
+  document.getElementById('s-speed').textContent  = S.speed.toFixed(1);
   document.getElementById('pace-val').textContent = paceStr(S.speed);
-
   voiceCheck();
 }
 
@@ -425,11 +440,6 @@ function onGpsErr(e) {
   document.getElementById('gps-overlay').classList.remove('show');
 }
 
-// ─────────────────────────────────────────────────────────
-// Voz
-// BUG-FIX #3: iOS speechSynthesis se congela ~30 s.
-//   Solución: llamar resume() periódicamente mientras hay carrera.
-// ─────────────────────────────────────────────────────────
 function primeVoice() {
   if (S.voiceReady) return;
   const u = new SpeechSynthesisUtterance('');
@@ -437,11 +447,8 @@ function primeVoice() {
   window.speechSynthesis.speak(u);
   S.voiceReady = true;
 }
-
-// Mantener iOS speechSynthesis activo cada 10 s
 setInterval(() => {
-  if (S.voiceEnabled && window.speechSynthesis.paused)
-    window.speechSynthesis.resume();
+  if (S.voiceEnabled && window.speechSynthesis.paused) window.speechSynthesis.resume();
 }, 10000);
 
 function speak(txt) {
@@ -474,27 +481,18 @@ function zoneOf(kmh) {
   if (kmh < 16) return 'rapido';
   return 'sprint';
 }
-
 function voiceCheck() {
-  const sec = eSec();
-  const km  = S.km;
-  const sp  = S.speed;
-
-  // km milestone
+  const sec = eSec(), km = S.km, sp = S.speed;
   const mi = Math.floor(km);
   if (mi > 0 && mi > S.lastKmAnn) {
     S.lastKmAnn = mi;
     speak(`Kilómetro ${mi}. ${Math.floor(sec/60)} minutos. Ritmo ${paceStr(sp)} por kilómetro.`);
     return;
   }
-
-  // BUG-FIX #4: no anunciar zona si velocidad < 0.5 km/h (GPS ruido)
   if (sp >= 0.5 && sec > 15) {
     const z = zoneOf(sp);
     if (z !== S.lastPaceAnn) { S.lastPaceAnn = z; speak(ZONES[z]); }
   }
-
-  // BPM alerts
   if (S.bpm) {
     if (S.bpm > 180 && S.lastBpmAnn !== 'hi') {
       S.lastBpmAnn = 'hi'; speak('Pulso muy alto. Baja el ritmo.');
@@ -506,86 +504,52 @@ function voiceCheck() {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// PANTALLA SIEMPRE ENCENDIDA — doble mecanismo:
-//   1) Wake Lock API  (iOS 16.4+ / Safari 16.4+)
-//   2) AudioContext silencioso — fallback que funciona en
-//      todas las versiones de iOS Safari (necesita gesto).
-//      Es el mismo truco que usa NoSleep.js.
-// ─────────────────────────────────────────────────────────
-let wakeLock   = null;
-let audioCtx   = null;
-let gainNode   = null;
+let wakeLock = null, audioCtx = null, gainNode = null;
 
 async function enableScreenOn() {
-  // ── 1) Wake Lock API ──────────────────────────────────
   if ('wakeLock' in navigator) {
     try {
       wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => {
-        // iOS puede liberarlo al cambiar de app; re-adquirimos al volver
-        wakeLock = null;
-      });
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
     } catch(_) {}
   }
-
-  // ── 2) AudioContext silencioso (fallback / refuerzo) ──
-  // Crea un oscilador a volumen 0 — iOS no duerme la pantalla
-  // mientras hay audio activo, aunque sea inaudible.
   try {
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       gainNode = audioCtx.createGain();
-      gainNode.gain.value = 0.001; // inaudible pero "activo"
+      gainNode.gain.value = 0.001;
       gainNode.connect(audioCtx.destination);
     }
     if (audioCtx.state === 'suspended') await audioCtx.resume();
-    // Nodo vacío que mantiene el contexto vivo
     const buf = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
     const src = audioCtx.createBufferSource();
     src.buffer = buf; src.loop = true;
-    src.connect(gainNode);
-    src.start();
-    // Guardamos referencia para detenerlo al parar
+    src.connect(gainNode); src.start();
     enableScreenOn._src = src;
   } catch(_) {}
-
   updateLockIcon(true);
 }
-
 function disableScreenOn() {
   if (wakeLock) { wakeLock.release(); wakeLock = null; }
   try {
     if (enableScreenOn._src) { enableScreenOn._src.stop(); enableScreenOn._src = null; }
-    if (audioCtx)            { audioCtx.suspend(); }
+    if (audioCtx) audioCtx.suspend();
   } catch(_) {}
   updateLockIcon(false);
 }
-
 function updateLockIcon(on) {
   const el = document.getElementById('lock-icon');
   if (el) el.textContent = on ? '🔒' : '🔓';
 }
-
-// Re-adquirir Wake Lock al volver al primer plano
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && S.running) enableScreenOn();
 });
 
-// ─────────────────────────────────────────────────────────
-// Controles
-// BUG-FIX #6: estado reseteado completamente en cada carrera nueva,
-//   incluyendo lastPaceAnn, lastBpmAnn, etc.
-// BUG-FIX #10: elapsed calculado correctamente en pauseRun/stopRun.
-// ─────────────────────────────────────────────────────────
 function startRun() {
   primeVoice();
-
   if (S.paused) {
-    // Reanudar
     S.startTime = Date.now();
-    S.paused    = false;
-    S.running   = true;
+    S.paused = false; S.running = true;
     document.getElementById('status-dot').className = 'active';
     document.getElementById('btn-pause').style.display = '';
     document.getElementById('btn-start').style.display = 'none';
@@ -595,28 +559,21 @@ function startRun() {
     speak('Reanudando carrera');
     return;
   }
-
-  // Carrera nueva — reset completo de estado
   Object.assign(S, {
-    running:true, paused:false,
-    startTime:Date.now(), elapsed:0,
-    km:0, speed:0, maxSpeed:0,
-    positions:[],
+    running:true, paused:false, startTime:Date.now(), elapsed:0,
+    km:0, speed:0, maxSpeed:0, positions:[],
     lastKmAnn:0, lastPaceAnn:null, lastBpmAnn:null,
     bpmSum:0, bpmCount:0, bpm:null,
   });
-  routeLine.setLatLngs([]);
-
-  document.getElementById('s-km').textContent    = '0.00';
-  document.getElementById('s-speed').textContent = '0.0';
-  document.getElementById('s-bpm').textContent   = '–';
+  clearRoute();
+  document.getElementById('s-km').textContent     = '0.00';
+  document.getElementById('s-speed').textContent  = '0.0';
+  document.getElementById('s-bpm').textContent    = '–';
   document.getElementById('pace-val').textContent = "–'–\"";
-
   document.getElementById('btn-start').style.display = 'none';
   document.getElementById('btn-pause').style.display = '';
   document.getElementById('btn-stop').style.display  = '';
   document.getElementById('status-dot').className = 'active';
-
   S.timerIv = setInterval(tick, 500);
   startGPS();
   enableScreenOn();
@@ -624,10 +581,9 @@ function startRun() {
 }
 
 function pauseRun() {
-  S.elapsed += Date.now() - S.startTime;   // BUG-FIX #10: acumular elapsed
+  S.elapsed += Date.now() - S.startTime;
   S.startTime = null;
-  S.paused  = true;
-  S.running = false;
+  S.paused = true; S.running = false;
   clearInterval(S.timerIv);
   stopGPS();
   disableScreenOn();
@@ -639,24 +595,20 @@ function pauseRun() {
 }
 
 function stopRun() {
-  if (S.startTime) S.elapsed += Date.now() - S.startTime;  // BUG-FIX #10
+  if (S.startTime) S.elapsed += Date.now() - S.startTime;
   S.startTime = null;
-  S.running = false;
-  S.paused  = false;
+  S.running = false; S.paused = false;
   clearInterval(S.timerIv);
   stopGPS();
   disableScreenOn();
-
   document.getElementById('status-dot').className = '';
   document.getElementById('btn-start').textContent = '▶ Iniciar';
   document.getElementById('btn-start').style.display = '';
   document.getElementById('btn-pause').style.display = 'none';
   document.getElementById('btn-stop').style.display  = 'none';
-
-  const sec  = S.elapsed / 1000;
+  const sec     = S.elapsed / 1000;
   const avgPace = S.km > 0 ? paceStr(S.km / (sec / 3600)) : '–';
   const avgBpm  = S.bpmCount > 0 ? Math.round(S.bpmSum / S.bpmCount) + ' bpm' : '–';
-
   document.getElementById('m-km').textContent       = S.km.toFixed(2) + ' km';
   document.getElementById('m-time').textContent     = fmt(sec);
   document.getElementById('m-pace').textContent     = avgPace + ' /km';
@@ -664,7 +616,6 @@ function stopRun() {
   document.getElementById('m-cal').textContent      = calcCal() + ' kcal';
   document.getElementById('m-bpm').textContent      = avgBpm;
   document.getElementById('modal').classList.add('show');
-
   speak(`Carrera finalizada. ${S.km.toFixed(2)} kilómetros en ${fmt(sec)}. Ritmo ${avgPace}.`);
 }
 
@@ -675,7 +626,6 @@ function tick() {
   document.getElementById('s-cal').textContent = calcCal();
 }
 
-// Voz toggle
 document.getElementById('voice-state').addEventListener('click', () => {
   primeVoice();
   S.voiceEnabled = !S.voiceEnabled;
@@ -683,9 +633,6 @@ document.getElementById('voice-state').addEventListener('click', () => {
   if (S.voiceEnabled) speak('Voz activada');
 });
 
-// ─────────────────────────────────────────────────────────
-// Pulso por cámara (PPG)
-// ─────────────────────────────────────────────────────────
 const HR = { stream:null, animId:null, samples:[], WIN:270, MIN_DIST:12 };
 
 async function openHR() {
@@ -694,7 +641,6 @@ async function openHR() {
   document.getElementById('hr-bpm').textContent = '–';
   document.getElementById('hr-msg').textContent = 'Cubre la cámara trasera con el dedo.';
   HR.samples = [];
-
   try {
     HR.stream = await navigator.mediaDevices.getUserMedia(
       { video:{ facingMode:{ exact:'environment' }, width:{ideal:160}, height:{ideal:160} } });
@@ -705,16 +651,13 @@ async function openHR() {
       return;
     }
   }
-
   const vid = document.getElementById('hr-video');
   vid.srcObject = HR.stream;
   try { await HR.stream.getVideoTracks()[0].applyConstraints({ advanced:[{ torch:true }] }); }
   catch(_) {}
-
   const cvs = document.getElementById('hr-canvas');
   const ctx = cvs.getContext('2d');
   let fc = 0;
-
   (function loop() {
     if (!HR.stream) return;
     HR.animId = requestAnimationFrame(loop);
@@ -761,12 +704,6 @@ function closeHR() {
   document.getElementById('hr-modal').classList.remove('show');
 }
 
-// ─────────────────────────────────────────────────────────
-// Arrancar GPS nada más cargar la página
-// Así iOS ya tiene permiso y posición cuando el usuario
-// pulsa "Iniciar", sin esperas ni timeouts.
-// ─────────────────────────────────────────────────────────
-map.setView([40.4168, -3.7038], 13); // fallback mientras llega GPS
 startGPS();
 </script>
 </body>
