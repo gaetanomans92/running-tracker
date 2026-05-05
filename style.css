@@ -1,1 +1,61 @@
 
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f0f14;
+  color: white;
+  text-align: center;
+}
+
+.app {
+  padding: 20px;
+}
+
+h1 {
+  color: #FC4C02;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-around;
+  margin: 20px 0;
+}
+
+.stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.label {
+  font-size: 12px;
+  color: #888;
+}
+
+strong {
+  font-size: 22px;
+}
+
+.controls {
+  margin: 20px 0;
+}
+
+button {
+  padding: 12px 20px;
+  margin: 8px;
+  border: none;
+  border-radius: 10px;
+  background: #FC4C02;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+.share {
+  margin-top: 20px;
+  background: #333;
+}
